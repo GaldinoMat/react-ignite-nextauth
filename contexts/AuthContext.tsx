@@ -2,6 +2,7 @@ import { createContext, ReactNode, useEffect, useState } from "react";
 import { setCookie, parseCookies, destroyCookie } from "nookies";
 import Router from "next/router";
 import { api } from "../services/apiClient";
+import { BroadcastChannel } from "broadcast-channel";
 
 type User = {
   email: string;
@@ -15,12 +16,15 @@ type SignInCredentials = {
 };
 
 type AuthContextData = {
-  signIn(credentials: SignInCredentials): Promise<void>;
+  signIn: (credentials: SignInCredentials) => Promise<void>;
+  signOut: () => void;
   isAuthenticated: boolean;
   user: User;
 };
 
 export const AuthContext = createContext({} as AuthContextData);
+
+const authContextChannel = new BroadcastChannel("auth");
 
 type AuthProviderProps = {
   children: ReactNode;
@@ -30,12 +34,29 @@ export function signOut() {
   destroyCookie(undefined, "nextauth.token");
   destroyCookie(undefined, "nextauth.refreshToken");
 
+  authContextChannel.postMessage("signOut");
+
   Router.push("/");
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User>();
   const isAuthenticated = !!user;
+
+  useEffect(() => {
+    authContextChannel.onmessage = (message) => {
+      switch (message.data) {
+        case "signOut":
+          signOut();
+          break;
+        case "signIn":
+          Router.push("/dashboard");
+          break;
+        default:
+          break;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const { "nextauth.token": token } = parseCookies();
@@ -80,13 +101,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       api.defaults.headers["Authorization"] = `Bearer ${token}`;
 
       Router.push("/dashboard");
+
+      authContextChannel.postMessage("signIn");
     } catch (error) {
       console.log(error);
     }
   }
 
   return (
-    <AuthContext.Provider value={{ signIn, isAuthenticated, user }}>
+    <AuthContext.Provider value={{ signIn, signOut, isAuthenticated, user }}>
       {children}
     </AuthContext.Provider>
   );

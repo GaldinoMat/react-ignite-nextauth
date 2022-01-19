@@ -62,7 +62,7 @@ export function setupApiClient(ctx = undefined) {
                 failedRequestsQueue = [];
 
                 if (process.browser) {
-                  signOut()
+                  signOut();
                 }
               })
               .finally(() => {
@@ -84,9 +84,9 @@ export function setupApiClient(ctx = undefined) {
           });
         } else {
           if (process.browser) {
-            signOut()
+            signOut();
           } else {
-            return Promise.reject()
+            return Promise.reject(new AuthTokenError());
           }
         }
       }
@@ -94,5 +94,5 @@ export function setupApiClient(ctx = undefined) {
     }
   );
 
-  return api
+  return api;
 }
